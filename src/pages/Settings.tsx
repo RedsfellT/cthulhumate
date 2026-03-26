@@ -1,6 +1,81 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { Settings as SettingsIcon, Key, Eye, EyeOff, Check, Info, RefreshCw } from 'lucide-react'
+import { Settings as SettingsIcon, Key, Eye, EyeOff, Check, Info, RefreshCw, Share2, QrCode, Copy } from 'lucide-react'
+import QRCode from 'qrcode'
+
+const APP_URL = 'https://RedsfellT.github.io/cthulhumate/'
+
+function ShareSection() {
+  const [qrData, setQrData] = useState<string | null>(null)
+  const [showQr, setShowQr] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share
+
+  useEffect(() => {
+    if (showQr && !qrData) {
+      QRCode.toDataURL(APP_URL, { width: 256, margin: 2, color: { dark: '#c8972a', light: '#0d0500' } })
+        .then(setQrData)
+        .catch(() => {})
+    }
+  }, [showQr, qrData])
+
+  function share() {
+    navigator.share({ title: 'CthulhuMate V7', text: 'Installe l\'aide de jeu CthulhuMate V7', url: APP_URL })
+      .catch(() => {})
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(APP_URL).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <section>
+      <h2 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: '#c8972a', fontFamily: 'Georgia,serif' }}>
+        <Share2 size={16} /> Partager l'app
+      </h2>
+      <div className="rounded-lg p-4 flex flex-col gap-3" style={{ background: '#1a0a00', border: '1px solid #3d1a08' }}>
+        <div className="text-xs" style={{ color: '#5a4535' }}>
+          Envoie ce lien à tes joueurs pour qu'ils installent l'app.
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          {canShare && (
+            <button onClick={share}
+              className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-semibold"
+              style={{ background: 'linear-gradient(135deg, #8b3a0a, #c8972a)', color: '#fff' }}>
+              <Share2 size={14} /> Partager (SMS / Mail…)
+            </button>
+          )}
+          <button onClick={copyLink}
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
+            style={{ background: '#231008', border: '1px solid #3d1a08', color: copied ? '#27ae60' : '#c8972a' }}>
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+            {copied ? 'Copié !' : 'Copier le lien'}
+          </button>
+          <button onClick={() => setShowQr(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
+            style={{ background: showQr ? '#3d1a08' : '#231008', border: '1px solid #3d1a08', color: '#8a7055' }}>
+            <QrCode size={14} /> QR Code
+          </button>
+        </div>
+
+        {showQr && (
+          <div className="flex flex-col items-center gap-2 pt-1">
+            {qrData
+              ? <img src={qrData} alt="QR Code CthulhuMate" className="rounded-lg" style={{ width: 180, height: 180 }} />
+              : <div className="w-44 h-44 rounded-lg flex items-center justify-center text-xs" style={{ background: '#231008', color: '#3d1a08' }}>Génération…</div>
+            }
+            <div className="text-xs text-center font-mono" style={{ color: '#3d1a08', wordBreak: 'break-all', maxWidth: 220 }}>
+              {APP_URL}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
 
 export function Settings() {
   const store = useSettingsStore()
@@ -151,6 +226,9 @@ export function Settings() {
             </button>
           </div>
         </section>
+
+        {/* Share */}
+        <ShareSection />
 
         {/* About */}
         <section>
