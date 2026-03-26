@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSessionStore } from '../../store/useSessionStore'
 import { Wifi, Dice6 } from 'lucide-react'
 import { MapWithPins } from './MapWithPins'
@@ -6,30 +6,17 @@ import { MapWithPins } from './MapWithPins'
 export function PlayerView() {
   const session = useSessionStore()
   const [name, setName] = useState('')
-  const [joined, setJoined] = useState(false)
-  const [handout, setHandout] = useState<{ data: string; title: string; type: string } | null>(null)
-
-  const serverBase = session.lanHost ? `https://${session.lanHost}` : ''
-
-  useEffect(() => {
-    if (session.currentHandoutId && serverBase) {
-      fetch(`${serverBase}/api/handout/${session.currentHandoutId}`)
-        .then(r => r.json())
-        .then(setHandout)
-        .catch(() => {})
-    } else {
-      setHandout(null)
-    }
-  }, [session.currentHandoutId, serverBase])
+  const [code, setCode] = useState(session.roomCode)
 
   function join() {
     const n = name.trim() || 'Joueur'
-    const host = session.lanHost || window.location.host
-    session.connect(n, 'player', host)
-    setJoined(true)
+    const roomCode = code.trim().toUpperCase()
+    if (!roomCode) return
+    session.setRoomCode(roomCode)
+    session.connect(n, 'player', roomCode)
   }
 
-  if (!joined || !session.connected) {
+  if (!session.connected) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-6 p-6"
         style={{ background: '#0d0500' }}>
@@ -52,14 +39,19 @@ export function PlayerView() {
             autoFocus
           />
           <input
-            value={session.lanHost}
-            onChange={e => session.setLanHost(e.target.value)}
-            placeholder="IP du Gardien (ex: 192.168.1.42:3000)"
-            className="w-full px-4 py-2 rounded-lg text-center text-sm outline-none font-mono"
-            style={{ background: '#1a0a00', border: '1px solid #3d1a08', color: '#8a7055' }}
+            value={code}
+            onChange={e => setCode(e.target.value.toUpperCase())}
+            onKeyDown={e => e.key === 'Enter' && join()}
+            placeholder="Code de salle (ex: ABC123)"
+            className="w-full px-4 py-2 rounded-lg text-center text-base outline-none font-mono tracking-widest"
+            style={{ background: '#1a0a00', border: '1px solid #3d1a08', color: '#c8972a', letterSpacing: '0.2em' }}
+            maxLength={8}
           />
+          <div className="text-xs text-center" style={{ color: '#3d1a08' }}>
+            Le code est affiché dans l'écran du Gardien
+          </div>
           <button onClick={join}
-            disabled={!session.lanHost.trim()}
+            disabled={!code.trim()}
             className="w-full py-3 rounded-lg font-semibold text-white disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #8b3a0a, #c8972a)' }}>
             Rejoindre
@@ -68,6 +60,9 @@ export function PlayerView() {
       </div>
     )
   }
+
+  const handout = session.currentHandoutData
+  const mapData = session.currentMapData
 
   return (
     <div className="flex flex-col h-full" style={{ background: '#0d0500' }}>
@@ -81,7 +76,7 @@ export function PlayerView() {
             · {session.players.filter(p => p.role === 'player').length} joueur(s)
           </span>
         </div>
-        <button onClick={() => { session.disconnect(); setJoined(false) }}
+        <button onClick={() => session.disconnect()}
           className="text-xs px-2 py-1 rounded"
           style={{ background: '#231008', color: '#5a4535', border: '1px solid #3d1a08' }}>
           Quitter
@@ -102,7 +97,7 @@ export function PlayerView() {
         )}
 
         {/* Handout display */}
-        {handout && session.currentHandoutId && (
+        {handout && (
           <div className="m-4 fade-in">
             <div className="text-xs mb-2 text-center" style={{ color: '#5a4535' }}>{handout.title}</div>
             {handout.type === 'image' && (
@@ -119,10 +114,10 @@ export function PlayerView() {
         )}
 
         {/* Map */}
-        {session.currentMapId && (
+        {mapData && (
           <div className="m-4 fade-in">
             <MapWithPins
-              handoutId={session.currentMapId}
+              imageData={mapData}
               pins={session.mapPins}
               onPinsChange={() => {}}
               isKeeper={false}
@@ -151,7 +146,7 @@ export function PlayerView() {
           </div>
         )}
 
-        {!handout && !session.currentMapId && session.diceLog.length === 0 && !session.atmosphere && (
+        {!handout && !mapData && session.diceLog.length === 0 && !session.atmosphere && (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 opacity-40">
             <div className="text-5xl">🐙</div>
             <div className="text-sm" style={{ color: '#8a7055' }}>En attente du Gardien…</div>

@@ -1,55 +1,38 @@
-import { useState, useEffect, useRef } from 'react'
-import { useSessionStore } from '../../store/useSessionStore'
-import { Upload, X, Send, Wifi, WifiOff, Eye, Trash2 } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useSessionStore, generateRoomCode } from '../../store/useSessionStore'
+import { db } from '../../db/database'
+import type { Handout } from '../../db/database'
+import { Upload, X, Send, Wifi, WifiOff, Eye, Trash2, Copy, Check } from 'lucide-react'
 import { MapWithPins } from './MapWithPins'
-
-interface Handout {
-  id: string
-  title: string
-  type: 'image' | 'text'
-  thumb?: string
-}
 
 export function SessionPanel() {
   const session = useSessionStore()
-  const [handouts, setHandouts] = useState<Handout[]>([])
+  const handouts = useLiveQuery(() => db.handouts.orderBy('createdAt').toArray(), []) ?? []
   const [atmosphere, setAtmosphere] = useState('')
   const [mapHandout, setMapHandout] = useState<Handout | null>(null)
-  const [tab, setTab] = useState<'handouts' | 'map' | 'sound' | 'players'>('handouts')
+  const [tab, setTab] = useState<'handouts' | 'map' | 'players'>('handouts')
+  const [copied, setCopied] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const mapFileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { loadHandouts() }, [session.lanHost])
-
-  async function loadHandouts() {
-    if (!serverBase) return
-    try {
-      const res = await fetch(`${serverBase}/api/handouts`)
-      setHandouts(await res.json())
-    } catch {}
-  }
+  const isConnected = session.connected && session.role === 'keeper'
 
   async function uploadHandout(file: File, type: 'image' | 'text' = 'image') {
-    if (!serverBase) return
     const reader = new FileReader()
     reader.onload = async (e) => {
       const data = e.target?.result as string
       const title = file.name.replace(/\.[^.]+$/, '')
-      await fetch(`${serverBase}/api/handout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, type, data, thumb: type === 'image' ? data : undefined })
-      })
-      loadHandouts()
+      await db.handouts.add({ id: crypto.randomUUID(), title, type, data, createdAt: new Date() })
     }
     if (type === 'image') reader.readAsDataURL(file)
     else reader.readAsText(file)
   }
 
   async function deleteHandout(id: string) {
-    await fetch(`${serverBase}/api/handout/${id}`, { method: 'DELETE' })
+    await db.handouts.delete(id)
     if (session.currentHandoutId === id) session.clearHandout()
-    loadHandouts()
+    if (mapHandout?.id === id) setMapHandout(null)
   }
 
   function sendAtmosphere() {
@@ -59,15 +42,16 @@ export function SessionPanel() {
     }
   }
 
-  const isConnected = session.connected && session.role === 'keeper'
-  const serverBase = session.lanHost ? `https://${session.lanHost}` : ''
-
-  // Détecte si on est sur le serveur local (session LAN possible)
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-
   function startSession() {
-    const host = isLocal ? window.location.host : `${session.lanHost}`
-    session.connect('Gardien', 'keeper', host)
+    const code = generateRoomCode()
+    session.setRoomCode(code)
+    session.connect('Gardien', 'keeper', code)
+  }
+
+  function copyCode() {
+    navigator.clipboard.writeText(session.roomCode).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -76,28 +60,7 @@ export function SessionPanel() {
       <div className="shrink-0 flex flex-col gap-2 px-3 py-2"
         style={{ borderBottom: '1px solid #3d1a08' }}>
 
-        {/* Saisie IP si on est sur GitHub Pages (pas en local) */}
-        {!isLocal && !isConnected && (
-          <div className="flex flex-col gap-1.5">
-            <div className="text-xs" style={{ color: '#8a7055' }}>
-              IP du serveur LAN (ex: 192.168.1.42:3000)
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={session.lanHost}
-                onChange={e => session.setLanHost(e.target.value)}
-                placeholder="192.168.1.42:3000"
-                className="flex-1 px-2 py-1.5 rounded text-sm outline-none font-mono"
-                style={{ background: '#231008', border: '1px solid #3d1a08', color: '#e8d5b0' }}
-              />
-            </div>
-            <div className="text-xs opacity-60" style={{ color: '#5a4535' }}>
-              Démarrez <code>start.bat</code> sur le PC du Gardien, copiez l'IP affichée.
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {isConnected
               ? <Wifi size={14} style={{ color: '#27ae60' }} />
@@ -105,16 +68,16 @@ export function SessionPanel() {
             <span className="text-xs font-semibold" style={{ color: isConnected ? '#27ae60' : '#5a4535' }}>
               {isConnected
                 ? `Session active · ${session.players.filter(p => p.role === 'player').length} joueur(s)`
-                : isLocal ? 'Serveur local prêt' : 'Non connecté'}
+                : 'Session inactive'}
             </span>
           </div>
+
           {!isConnected && (
             <button
               onClick={startSession}
-              disabled={!isLocal && !session.lanHost.trim()}
-              className="text-xs px-3 py-1.5 rounded font-semibold disabled:opacity-40"
+              className="text-xs px-3 py-1.5 rounded font-semibold"
               style={{ background: 'linear-gradient(135deg, #8b3a0a, #c8972a)', color: '#fff' }}>
-              {isLocal ? 'Démarrer session' : 'Se connecter'}
+              Créer session
             </button>
           )}
           {isConnected && (
@@ -124,6 +87,23 @@ export function SessionPanel() {
             </button>
           )}
         </div>
+
+        {/* Room code display */}
+        {isConnected && session.roomCode && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
+            style={{ background: '#231008', border: '1px solid #3d1a08' }}>
+            <div className="flex-1">
+              <div className="text-xs mb-0.5" style={{ color: '#5a4535' }}>Code de salle — à donner aux joueurs</div>
+              <div className="font-mono text-xl font-bold tracking-widest" style={{ color: '#c8972a' }}>
+                {session.roomCode}
+              </div>
+            </div>
+            <button onClick={copyCode} className="p-2 rounded"
+              style={{ background: copied ? '#27ae60' : '#3d1a08', color: '#fff' }}>
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -189,9 +169,9 @@ export function SessionPanel() {
                 return (
                   <div key={h.id} className="rounded overflow-hidden flex flex-col"
                     style={{ background: '#231008', border: `1px solid ${active ? '#c8972a' : '#3d1a08'}` }}>
-                    {h.type === 'image' && h.thumb && (
+                    {h.type === 'image' && (
                       <div className="h-16 overflow-hidden relative">
-                        <img src={h.thumb} alt={h.title} className="w-full h-full object-cover opacity-80" />
+                        <img src={h.data} alt={h.title} className="w-full h-full object-cover opacity-80" />
                         {active && (
                           <div className="absolute inset-0 flex items-center justify-center"
                             style={{ background: 'rgba(200,151,42,0.3)' }}>
@@ -202,7 +182,10 @@ export function SessionPanel() {
                     )}
                     <div className="p-1 flex items-center gap-1">
                       <span className="flex-1 text-xs truncate" style={{ color: '#8a7055' }}>{h.title}</span>
-                      <button onClick={() => active ? session.clearHandout() : session.showHandout(h.id)}
+                      <button
+                        onClick={() => active
+                          ? session.clearHandout()
+                          : session.showHandout({ id: h.id, data: h.data, title: h.title, type: h.type })}
                         className="p-1 rounded" style={{ color: active ? '#c8972a' : '#5a4535' }}>
                         <Eye size={10} />
                       </button>
@@ -236,24 +219,24 @@ export function SessionPanel() {
                 onChange={async (e) => {
                   if (!e.target.files?.[0]) return
                   await uploadHandout(e.target.files[0], 'image')
-                  const res = await fetch(`${serverBase}/api/handouts`)
-                  const hs = await res.json()
-                  if (hs.length) {
-                    const last = hs[hs.length - 1]
+                  const all = await db.handouts.orderBy('createdAt').toArray()
+                  if (all.length) {
+                    const last = all[all.length - 1]
                     setMapHandout(last)
-                    session.showMap(last.id)
+                    session.showMap(last.id, last.data, session.mapPins)
                   }
-                  loadHandouts()
                 }} />
             </div>
+
             {/* Map selector */}
             {handouts.filter(h => h.type === 'image').length > 0 && (
               <div>
                 <label className="text-xs mb-1 block" style={{ color: '#5a4535' }}>Choisir une carte</label>
                 <select
-                  onChange={async (e) => {
+                  value={mapHandout?.id ?? ''}
+                  onChange={(e) => {
                     const h = handouts.find(x => x.id === e.target.value)
-                    if (h) { setMapHandout(h); session.showMap(h.id) }
+                    if (h) { setMapHandout(h); session.showMap(h.id, h.data, []) }
                   }}
                   className="w-full px-2 py-1.5 rounded text-sm outline-none"
                   style={{ background: '#231008', border: '1px solid #3d1a08', color: '#e8d5b0' }}>
@@ -264,11 +247,15 @@ export function SessionPanel() {
                 </select>
               </div>
             )}
+
             {mapHandout && (
               <MapWithPins
-                handoutId={mapHandout.id}
+                imageData={mapHandout.data}
                 pins={session.mapPins}
-                onPinsChange={session.updatePins}
+                onPinsChange={(pins) => {
+                  session.updatePins(pins)
+                  session.showMap(mapHandout.id, mapHandout.data, pins)
+                }}
                 isKeeper
               />
             )}
@@ -278,15 +265,17 @@ export function SessionPanel() {
         {/* Players tab */}
         {tab === 'players' && (
           <div className="p-3 flex flex-col gap-3">
-            {/* QR Code info */}
             <div className="rounded-lg p-3 text-center" style={{ background: '#231008', border: '1px solid #3d1a08' }}>
-              <div className="text-xs mb-1" style={{ color: '#5a4535' }}>Joueurs : connectez-vous sur</div>
-              <div className="font-mono text-sm font-bold" style={{ color: '#c8972a' }}>
-                {session.lanHost ? `https://${session.lanHost}` : '—'}
+              <div className="text-xs mb-1" style={{ color: '#5a4535' }}>
+                Les joueurs rejoignent via l'onglet <strong style={{ color: '#8a7055' }}>Session</strong> de leur app
               </div>
-              <div className="text-xs mt-1" style={{ color: '#3d1a08' }}>
-                (même réseau WiFi)
-              </div>
+              {session.roomCode ? (
+                <div className="font-mono text-2xl font-bold tracking-widest mt-1" style={{ color: '#c8972a' }}>
+                  {session.roomCode}
+                </div>
+              ) : (
+                <div className="text-sm mt-1" style={{ color: '#3d1a08' }}>Créez d'abord une session</div>
+              )}
             </div>
 
             {session.players.filter(p => p.role === 'player').length === 0 ? (
@@ -294,7 +283,7 @@ export function SessionPanel() {
             ) : (
               <div className="flex flex-col gap-2">
                 {session.players.filter(p => p.role === 'player').map(p => (
-                  <div key={p.name} className="flex items-center gap-3 p-2 rounded"
+                  <div key={p.peerId} className="flex items-center gap-3 p-2 rounded"
                     style={{ background: '#1a0a00', border: '1px solid #3d1a08' }}>
                     <div className="w-2 h-2 rounded-full" style={{ background: '#27ae60' }} />
                     <span className="text-sm" style={{ color: '#e8d5b0' }}>{p.name}</span>
@@ -315,7 +304,7 @@ export function SessionPanel() {
                       <span style={{ color: '#3d1a08' }}>—</span>
                       <span style={{ color: '#8a7055' }}>{entry.skill}</span>
                       <span className="font-bold ml-auto" style={{ color: entry.color }}>{entry.roll}</span>
-                      <span className="text-xs" style={{ color: entry.color }}>{entry.result}</span>
+                      <span style={{ color: entry.color }}>{entry.result}</span>
                     </div>
                   ))}
                 </div>

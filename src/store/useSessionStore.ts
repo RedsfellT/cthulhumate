@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { joinRoom } from '@trystero-p2p/torrent'
 
 export type SessionRole = 'keeper' | 'player' | 'none'
 
@@ -22,6 +23,14 @@ export interface MapPin {
 export interface ConnectedPlayer {
   name: string
   role: 'keeper' | 'player'
+  peerId?: string
+}
+
+export interface HandoutPayload {
+  id: string
+  data: string
+  title: string
+  type: 'image' | 'text'
 }
 
 interface SessionStore {
@@ -30,33 +39,35 @@ interface SessionStore {
   playerName: string
   players: ConnectedPlayer[]
   currentHandoutId: string | null
+  currentHandoutData: HandoutPayload | null
   currentMapId: string | null
+  currentMapData: string | null
   mapPins: MapPin[]
   diceLog: DiceLogEntry[]
   initiative: any[]
   atmosphere: string | null
-  serverIP: string | null
-  ws: WebSocket | null
+  roomCode: string
 
-  lanHost: string  // IP:port du serveur LAN, ex: "192.168.1.42:3000"
-  setLanHost: (h: string) => void
+  _room: any | null
+  _send: ((data: any, peerId?: string) => void) | null
 
-  // Actions
-  init: () => Promise<void>
-  connect: (name: string, role: SessionRole, host?: string) => void
+  init: () => void
+  connect: (name: string, role: SessionRole, roomCode: string) => void
   disconnect: () => void
+  setRoomCode: (code: string) => void
   setPlayerName: (n: string) => void
 
-  // Keeper
-  showHandout: (id: string) => void
+  showHandout: (payload: HandoutPayload) => void
   clearHandout: () => void
-  showMap: (id: string, pins?: MapPin[]) => void
+  showMap: (id: string, data: string, pins?: MapPin[]) => void
   updatePins: (pins: MapPin[]) => void
   sendAtmosphere: (text: string) => void
   updateInitiative: (initiative: any[]) => void
-
-  // Both
   broadcastDice: (entry: Omit<DiceLogEntry, 'roller' | 'timestamp'>) => void
+}
+
+export function generateRoomCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase()
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -65,117 +76,166 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   playerName: 'Joueur',
   players: [],
   currentHandoutId: null,
+  currentHandoutData: null,
   currentMapId: null,
+  currentMapData: null,
   mapPins: [],
   diceLog: [],
   initiative: [],
   atmosphere: null,
-  serverIP: null,
-  ws: null,
-  lanHost: localStorage.getItem('cthulhu_lan_host') || '',
-  setLanHost: (h) => { set({ lanHost: h }); localStorage.setItem('cthulhu_lan_host', h) },
+  roomCode: localStorage.getItem('cthulhu_room_code') || '',
+  _room: null,
+  _send: null,
 
-  init: async () => {
-    try {
-      const lanHost = get().lanHost
-      const url = lanHost ? `https://${lanHost}/api/info` : '/api/info'
-      const res = await fetch(url)
-      const { ip } = await res.json()
-      set({ serverIP: ip })
-    } catch {}
+  init: () => {},
+
+  setRoomCode: (code) => {
+    set({ roomCode: code })
+    localStorage.setItem('cthulhu_room_code', code)
   },
 
-  connect: (name: string, role: SessionRole, host?: string) => {
-    const existing = get().ws
-    if (existing) existing.close()
+  connect: (name, role, roomCode) => {
+    const existing = get()._room
+    if (existing) existing.leave()
 
-    // Détermine l'hôte : paramètre > lanHost sauvegardé > hôte actuel
-    const targetHost = host || get().lanHost || window.location.host
-    // Toujours WSS si on se connecte à un serveur LAN HTTPS, ws si localhost sans https
-    const isSecure = targetHost.startsWith('localhost') || targetHost.startsWith('127.')
-      ? window.location.protocol === 'https:'
-      : true  // le serveur LAN utilise HTTPS
-    const protocol = isSecure ? 'wss' : 'ws'
-    const ws = new WebSocket(`${protocol}://${targetHost}`)
+    const room = joinRoom({ appId: 'cthulhumate-v7' }, roomCode)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [send, receive] = (room as any).makeAction('session')
 
-    ws.onopen = () => {
-      set({ connected: true, ws, role, playerName: name })
-      ws.send(JSON.stringify({ type: 'set_role', role, name }))
-    }
+    receive((data: any, peerId: string) => {
+      handleIncoming(data, peerId, set, get)
+    })
 
-    ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data)
-      handleIncoming(msg, set, get)
-    }
+    room.onPeerJoin((peerId: string) => {
+      if (get().role === 'keeper') {
+        // Send current state to the new peer only
+        const s = get()
+        send({
+          type: 'session_state',
+          state: {
+            currentHandoutId: s.currentHandoutId,
+            currentHandoutData: s.currentHandoutData,
+            currentMapId: s.currentMapId,
+            currentMapData: s.currentMapData,
+            mapPins: s.mapPins,
+            diceLog: s.diceLog,
+            initiative: s.initiative,
+            atmosphere: s.atmosphere,
+            players: s.players,
+          }
+        }, peerId)
+      }
+    })
 
-    ws.onclose = () => set({ connected: false, ws: null })
-    ws.onerror = () => set({ connected: false, ws: null })
+    room.onPeerLeave((peerId: string) => {
+      set(s => ({ players: s.players.filter(p => p.peerId !== peerId) }))
+    })
+
+    set({ _room: room, _send: send, connected: true, role, playerName: name, roomCode })
+    localStorage.setItem('cthulhu_room_code', roomCode)
+
+    // Announce ourselves to all peers after a short delay
+    setTimeout(() => {
+      send({ type: 'announce', name, role })
+    }, 400)
   },
 
   disconnect: () => {
-    get().ws?.close()
-    set({ connected: false, ws: null, role: 'none' })
+    get()._room?.leave()
+    set({ connected: false, _room: null, _send: null, role: 'none', players: [] })
   },
 
   setPlayerName: (n) => set({ playerName: n }),
 
-  showHandout: (id) => {
-    get().ws?.send(JSON.stringify({ type: 'show_handout', handoutId: id }))
+  showHandout: (payload) => {
+    get()._send?.({ type: 'show_handout', id: payload.id, data: payload.data, title: payload.title, handoutType: payload.type })
+    set({ currentHandoutId: payload.id, currentHandoutData: payload, currentMapId: null, currentMapData: null })
   },
+
   clearHandout: () => {
-    get().ws?.send(JSON.stringify({ type: 'clear_handout' }))
-    set({ currentHandoutId: null, currentMapId: null })
+    get()._send?.({ type: 'clear_handout' })
+    set({ currentHandoutId: null, currentHandoutData: null, currentMapId: null, currentMapData: null })
   },
-  showMap: (id, pins = []) => {
-    get().ws?.send(JSON.stringify({ type: 'show_map', handoutId: id, pins }))
+
+  showMap: (id, data, pins = []) => {
+    get()._send?.({ type: 'show_map', id, data, pins })
+    set({ currentMapId: id, currentMapData: data, currentHandoutId: null, currentHandoutData: null, mapPins: pins })
   },
+
   updatePins: (pins) => {
-    get().ws?.send(JSON.stringify({ type: 'update_pins', pins }))
+    get()._send?.({ type: 'update_pins', pins })
     set({ mapPins: pins })
   },
+
   sendAtmosphere: (text) => {
-    get().ws?.send(JSON.stringify({ type: 'atmosphere', text }))
+    get()._send?.({ type: 'atmosphere', text })
     set({ atmosphere: text })
   },
+
   updateInitiative: (initiative) => {
-    get().ws?.send(JSON.stringify({ type: 'update_initiative', initiative }))
+    get()._send?.({ type: 'update_initiative', initiative })
     set({ initiative })
   },
+
   broadcastDice: (entry) => {
-    get().ws?.send(JSON.stringify({ type: 'dice_roll', ...entry }))
+    const name = get().playerName
+    const fullEntry: DiceLogEntry = { ...entry, roller: name, timestamp: Date.now() }
+    get()._send?.({ type: 'dice_roll', ...fullEntry })
+    // Add to local log too (we don't receive our own P2P messages)
+    set(s => ({ diceLog: [fullEntry, ...s.diceLog].slice(0, 60) }))
   },
 }))
 
-function handleIncoming(msg: any, set: any, _get: any) {
+function handleIncoming(msg: any, peerId: string, set: any, get: any) {
   switch (msg.type) {
-    case 'session_state':
+    case 'announce': {
+      set((s: any) => {
+        const already = s.players.find((p: ConnectedPlayer) => p.peerId === peerId)
+        if (already) return {}
+        return { players: [...s.players, { name: msg.name, role: msg.role, peerId }] }
+      })
+      // Keeper re-announces so the new player knows who the keeper is
+      if (get().role === 'keeper') {
+        setTimeout(() => {
+          get()._send?.({ type: 'announce', name: get().playerName, role: 'keeper' }, peerId)
+        }, 100)
+      }
+      break
+    }
+    case 'session_state': {
+      const s = msg.state
       set({
-        currentHandoutId: msg.state.currentHandoutId,
-        currentMapId: msg.state.currentMapId,
-        mapPins: msg.state.mapPins || [],
-        diceLog: msg.state.diceLog || [],
-        initiative: msg.state.initiative || [],
-        atmosphere: msg.state.atmosphere,
-        players: msg.state.players || [],
+        currentHandoutId: s.currentHandoutId,
+        currentHandoutData: s.currentHandoutData,
+        currentMapId: s.currentMapId,
+        currentMapData: s.currentMapData,
+        mapPins: s.mapPins || [],
+        diceLog: s.diceLog || [],
+        initiative: s.initiative || [],
+        atmosphere: s.atmosphere,
+        players: s.players || [],
       })
       break
-    case 'players':
-      set({ players: msg.players })
-      break
+    }
     case 'show_handout':
-      set({ currentHandoutId: msg.handoutId, currentMapId: null })
+      set({
+        currentHandoutId: msg.id,
+        currentHandoutData: { id: msg.id, data: msg.data, title: msg.title, type: msg.handoutType as 'image' | 'text' },
+        currentMapId: null,
+        currentMapData: null,
+      })
       break
     case 'clear_handout':
-      set({ currentHandoutId: null, currentMapId: null })
+      set({ currentHandoutId: null, currentHandoutData: null, currentMapId: null, currentMapData: null })
       break
     case 'show_map':
-      set({ currentMapId: msg.handoutId, currentHandoutId: null, mapPins: msg.pins || [] })
+      set({ currentMapId: msg.id, currentMapData: msg.data, currentHandoutId: null, currentHandoutData: null, mapPins: msg.pins || [] })
       break
     case 'update_pins':
       set({ mapPins: msg.pins })
       break
     case 'dice_roll':
-      set((s: any) => ({ diceLog: [msg, ...s.diceLog].slice(0, 60) }))
+      set((s: any) => ({ diceLog: [{ ...msg, timestamp: msg.timestamp || Date.now() }, ...s.diceLog].slice(0, 60) }))
       break
     case 'update_initiative':
       set({ initiative: msg.initiative })

@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { Plus, X } from 'lucide-react'
 import type { MapPin as Pin } from '../../store/useSessionStore'
-import { useSessionStore } from '../../store/useSessionStore'
 
 interface Props {
-  handoutId: string
+  imageData: string | null
   pins: Pin[]
   onPinsChange: (pins: Pin[]) => void
   isKeeper?: boolean
@@ -12,21 +11,11 @@ interface Props {
 
 const PIN_COLORS = ['#c8972a', '#c0392b', '#27ae60', '#3498db', '#9b59b6', '#e67e22']
 
-export function MapWithPins({ handoutId, pins, onPinsChange, isKeeper }: Props) {
-  const [imageData, setImageData] = useState<string | null>(null)
+export function MapWithPins({ imageData, pins, onPinsChange, isKeeper }: Props) {
   const [addMode, setAddMode] = useState(false)
   const [newPinLabel, setNewPinLabel] = useState('')
   const [newPinColor, setNewPinColor] = useState(PIN_COLORS[0])
   const imgRef = useRef<HTMLDivElement>(null)
-  const lanHost = useSessionStore(s => s.lanHost)
-  const serverBase = lanHost ? `https://${lanHost}` : ''
-
-  useEffect(() => {
-    fetch(`${serverBase}/api/handout/${handoutId}`)
-      .then(r => r.json())
-      .then(h => setImageData(h.data))
-      .catch(() => {})
-  }, [handoutId, serverBase])
 
   function handleMapClick(e: React.MouseEvent) {
     if (!isKeeper || !addMode) return

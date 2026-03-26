@@ -147,6 +147,15 @@ export interface SessionNote {
   createdAt: Date
 }
 
+// ── Handout (session LAN) ─────────────────────────────────────
+export interface Handout {
+  id: string   // UUID
+  title: string
+  type: 'image' | 'text'
+  data: string // base64 data URL ou texte brut
+  createdAt: Date
+}
+
 // ── App Settings ─────────────────────────────────────────────
 export interface AppSettings {
   id?: number
@@ -312,6 +321,7 @@ class CthulhuDatabase extends Dexie {
   characters!: EntityTable<Character, 'id'>
   sessions!: EntityTable<SessionNote, 'id'>
   settings!: EntityTable<AppSettings, 'id'>
+  handouts!: Dexie.Table<Handout, string>
 
   constructor() {
     super('CthulhuMateDB')
@@ -320,6 +330,13 @@ class CthulhuDatabase extends Dexie {
       characters: '++id, name, player, campaign, period, updatedAt',
       sessions: '++id, campaign, sessionNumber, date',
       settings: '++id, &key',
+    })
+    this.version(3).stores({
+      pdfs: '++id, name, category, campaign, addedAt',
+      characters: '++id, name, player, campaign, period, updatedAt',
+      sessions: '++id, campaign, sessionNumber, date',
+      settings: '++id, &key',
+      handouts: 'id, title, type, createdAt',
     })
   }
 }
