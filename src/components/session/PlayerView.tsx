@@ -9,16 +9,18 @@ export function PlayerView() {
   const [joined, setJoined] = useState(false)
   const [handout, setHandout] = useState<{ data: string; title: string; type: string } | null>(null)
 
+  const serverBase = session.lanHost ? `https://${session.lanHost}` : ''
+
   useEffect(() => {
-    if (session.currentHandoutId) {
-      fetch(`/api/handout/${session.currentHandoutId}`)
+    if (session.currentHandoutId && serverBase) {
+      fetch(`${serverBase}/api/handout/${session.currentHandoutId}`)
         .then(r => r.json())
         .then(setHandout)
         .catch(() => {})
     } else {
       setHandout(null)
     }
-  }, [session.currentHandoutId])
+  }, [session.currentHandoutId, serverBase])
 
   function join() {
     const n = name.trim() || 'Joueur'
@@ -75,10 +77,15 @@ export function PlayerView() {
         <div className="flex items-center gap-2">
           <Wifi size={14} style={{ color: '#27ae60' }} />
           <span className="text-sm" style={{ color: '#e8d5b0' }}>{session.playerName}</span>
+          <span className="text-xs" style={{ color: '#5a4535' }}>
+            · {session.players.filter(p => p.role === 'player').length} joueur(s)
+          </span>
         </div>
-        <span className="text-xs" style={{ color: '#5a4535' }}>
-          {session.players.filter(p => p.role === 'player').length} joueur(s) connecté(s)
-        </span>
+        <button onClick={() => { session.disconnect(); setJoined(false) }}
+          className="text-xs px-2 py-1 rounded"
+          style={{ background: '#231008', color: '#5a4535', border: '1px solid #3d1a08' }}>
+          Quitter
+        </button>
       </div>
 
       {/* Main content */}

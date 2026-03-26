@@ -8,6 +8,7 @@ import { AiAssistant } from './pages/AiAssistant'
 import { Sessions } from './pages/Sessions'
 import { Settings } from './pages/Settings'
 import { RoleSelection } from './pages/RoleSelection'
+import { PlayerView } from './components/session/PlayerView'
 import { useSettingsStore } from './store/useSettingsStore'
 import { useSessionStore } from './store/useSessionStore'
 
@@ -47,6 +48,9 @@ export default function App() {
             <Route path="/ai" element={<AiAssistant />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/settings" element={<Settings />} />
+            {appRole === 'investigateur' && (
+              <Route path="/session-live" element={<PlayerView />} />
+            )}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

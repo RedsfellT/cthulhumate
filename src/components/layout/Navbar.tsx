@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { BookOpen, Users, Eye, MessageSquare, Swords, Settings, Dice6, Wifi } from 'lucide-react'
+import { BookOpen, Users, Eye, MessageSquare, Swords, Settings, Dice6, Wifi, Radio } from 'lucide-react'
 import { useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { QuickDicePanel } from '../ui/DiceRoller'
@@ -18,8 +18,9 @@ const NAV_ITEMS_GARDIEN = [
 const NAV_ITEMS_INVESTIGATEUR = [
   { path: '/', icon: BookOpen, label: 'Bibliothèque' },
   { path: '/characters', icon: Users, label: 'Personnages' },
+  { path: '/session-live', icon: Radio, label: 'Session' },
   { path: '/ai', icon: MessageSquare, label: 'IA' },
-  { path: '/sessions', icon: Swords, label: 'Sessions' },
+  { path: '/sessions', icon: Swords, label: 'Notes' },
   { path: '/settings', icon: Settings, label: 'Paramètres' },
 ]
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Plus, X } from 'lucide-react'
 import type { MapPin as Pin } from '../../store/useSessionStore'
+import { useSessionStore } from '../../store/useSessionStore'
 
 interface Props {
   handoutId: string
@@ -17,13 +18,15 @@ export function MapWithPins({ handoutId, pins, onPinsChange, isKeeper }: Props) 
   const [newPinLabel, setNewPinLabel] = useState('')
   const [newPinColor, setNewPinColor] = useState(PIN_COLORS[0])
   const imgRef = useRef<HTMLDivElement>(null)
+  const lanHost = useSessionStore(s => s.lanHost)
+  const serverBase = lanHost ? `https://${lanHost}` : ''
 
   useEffect(() => {
-    fetch(`/api/handout/${handoutId}`)
+    fetch(`${serverBase}/api/handout/${handoutId}`)
       .then(r => r.json())
       .then(h => setImageData(h.data))
       .catch(() => {})
-  }, [handoutId])
+  }, [handoutId, serverBase])
 
   function handleMapClick(e: React.MouseEvent) {
     if (!isKeeper || !addMode) return
