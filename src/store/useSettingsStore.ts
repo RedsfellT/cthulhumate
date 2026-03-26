@@ -41,7 +41,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       getSetting('anthropicModel'),
     ])
     set({
-      appRole: (role as AppRole) ?? null,
+      appRole: (role === 'gardien' || role === 'investigateur') ? role : null,
       aiProvider: (provider as AiProvider) ?? 'none',
       openaiKey: oKey ?? '',
       anthropicKey: aKey ?? '',

@@ -14,7 +14,8 @@ import { useSessionStore } from './store/useSessionStore'
 export default function App() {
   const load = useSettingsStore(s => s.load)
   const sessionInit = useSessionStore(s => s.init)
-  const { loaded, appRole } = useSettingsStore(s => ({ loaded: s.loaded, appRole: s.appRole }))
+  const loaded = useSettingsStore(s => s.loaded)
+  const appRole = useSettingsStore(s => s.appRole)
 
   useEffect(() => { load(); sessionInit() }, [])
 
