@@ -1,73 +1,91 @@
-# React + TypeScript + Vite
+# 🐙 CthulhuMate V7
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aide de jeu numérique pour **L'Appel de Cthulhu V7** — Éditions Sans Détour.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🌐 Application en ligne
 
-## React Compiler
+**https://RedsfellT.github.io/cthulhumate/**
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Toutes les données sont stockées **localement sur ton appareil** (rien n'est envoyé en ligne).
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 📱 Installation sur chaque appareil
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### PC (Windows / Mac)
+1. Ouvre **Chrome** ou **Edge**
+2. Va sur https://RedsfellT.github.io/cthulhumate/
+3. Clique l'icône **📥** dans la barre d'adresse → **Installer**
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Android
+1. Ouvre **Chrome**
+2. Va sur https://RedsfellT.github.io/cthulhumate/
+3. Menu **⋮** → **Ajouter à l'écran d'accueil**
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### iPhone / iPad
+1. Ouvre **Safari** (obligatoire, pas Chrome)
+2. Va sur https://RedsfellT.github.io/cthulhumate/
+3. Bouton **Partage** (carré avec flèche ↑) → **Sur l'écran d'accueil**
+
+---
+
+## 🌐 Session LAN (même WiFi, à la table de jeu)
+
+Permet au Gardien de partager handouts, cartes, jets de dés et messages d'ambiance en temps réel sur tous les appareils connectés.
+
+### Démarrer le serveur (PC du Gardien)
+```
+Double-clic sur start.bat
+```
+Le terminal affiche l'adresse IP locale et un QR code.
+
+### Première connexion sur chaque appareil (une seule fois)
+1. Ouvre l'URL affichée (`https://192.168.x.x:3000`) dans le **navigateur**
+2. Clique **Avancé** → **Continuer** (avertissement certificat local, normal)
+3. C'est fait, le certificat est accepté pour toujours sur cet appareil
+
+### Se connecter à la session
+Dans l'app installée → onglet **Gardien** → **📡 Session** → entre `192.168.x.x:3000` → **Se connecter**
+
+---
+
+## 🔄 Mettre à jour l'application
+
+Après avoir modifié le code :
+```
+Double-clic sur deploy.bat
+```
+L'app se met à jour sur tous les appareils en ~2 minutes.
+
+Ou manuellement :
+```
+npm run build
+git add -A
+git commit -m "Update"
+git push origin main
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🛠️ Développement local
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install --legacy-peer-deps
+npm run dev        # serveur de développement
+npm run build      # build de production
+node server.js     # serveur LAN local (après build)
 ```
+
+---
+
+## 📦 Stack technique
+
+- **React + TypeScript + Vite**
+- **Tailwind CSS v4**
+- **Dexie.js** (IndexedDB — stockage 100% local)
+- **vite-plugin-pwa** (PWA installable, fonctionne hors-ligne)
+- **pdf.js** (lecture de PDFs)
+- **Express + WebSocket** (serveur LAN)
+- **Web Audio API** (ambiances sonores procédurales)
