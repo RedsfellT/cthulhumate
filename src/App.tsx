@@ -9,17 +9,12 @@ import { Sessions } from './pages/Sessions'
 import { Settings } from './pages/Settings'
 import { useSettingsStore } from './store/useSettingsStore'
 import { useSessionStore } from './store/useSessionStore'
-import { PlayerView } from './components/session/PlayerView'
 
 export default function App() {
   const load = useSettingsStore(s => s.load)
   const sessionInit = useSessionStore(s => s.init)
 
   useEffect(() => { load(); sessionInit() }, [])
-
-  // Player mode: accessed from another device on the local network
-  const isPlayerMode = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-  if (isPlayerMode) return <PlayerView />
 
   return (
     <BrowserRouter>

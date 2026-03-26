@@ -43,9 +43,9 @@ echo.
 echo  [3/3] Deploiement lance !
 echo.
 echo  GitHub Actions va construire et publier l'app automatiquement.
-echo  Suivi : https://github.com/[TON-USERNAME]/cthulhumate/actions
+echo  Suivi : https://github.com/RedsfellT/cthulhumate/actions
 echo.
 echo  L'app sera disponible dans ~2 minutes sur :
-echo  https://[TON-USERNAME].github.io/cthulhumate/
+echo  https://RedsfellT.github.io/cthulhumate/
 echo.
 pause
