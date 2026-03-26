@@ -77,7 +77,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   init: async () => {
     try {
-      const res = await fetch('/api/info')
+      const lanHost = get().lanHost
+      const url = lanHost ? `https://${lanHost}/api/info` : '/api/info'
+      const res = await fetch(url)
       const { ip } = await res.json()
       set({ serverIP: ip })
     } catch {}

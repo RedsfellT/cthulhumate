@@ -19,21 +19,23 @@ export function SessionPanel() {
   const fileRef = useRef<HTMLInputElement>(null)
   const mapFileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { loadHandouts() }, [])
+  useEffect(() => { loadHandouts() }, [session.lanHost])
 
   async function loadHandouts() {
+    if (!serverBase) return
     try {
-      const res = await fetch('/api/handouts')
+      const res = await fetch(`${serverBase}/api/handouts`)
       setHandouts(await res.json())
     } catch {}
   }
 
   async function uploadHandout(file: File, type: 'image' | 'text' = 'image') {
+    if (!serverBase) return
     const reader = new FileReader()
     reader.onload = async (e) => {
       const data = e.target?.result as string
       const title = file.name.replace(/\.[^.]+$/, '')
-      await fetch('/api/handout', {
+      await fetch(`${serverBase}/api/handout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, type, data, thumb: type === 'image' ? data : undefined })
@@ -45,7 +47,7 @@ export function SessionPanel() {
   }
 
   async function deleteHandout(id: string) {
-    await fetch(`/api/handout/${id}`, { method: 'DELETE' })
+    await fetch(`${serverBase}/api/handout/${id}`, { method: 'DELETE' })
     if (session.currentHandoutId === id) session.clearHandout()
     loadHandouts()
   }
@@ -58,6 +60,7 @@ export function SessionPanel() {
   }
 
   const isConnected = session.connected && session.role === 'keeper'
+  const serverBase = session.lanHost ? `https://${session.lanHost}` : ''
 
   // Détecte si on est sur le serveur local (session LAN possible)
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -233,7 +236,7 @@ export function SessionPanel() {
                 onChange={async (e) => {
                   if (!e.target.files?.[0]) return
                   await uploadHandout(e.target.files[0], 'image')
-                  const res = await fetch('/api/handouts')
+                  const res = await fetch(`${serverBase}/api/handouts`)
                   const hs = await res.json()
                   if (hs.length) {
                     const last = hs[hs.length - 1]
@@ -279,7 +282,7 @@ export function SessionPanel() {
             <div className="rounded-lg p-3 text-center" style={{ background: '#231008', border: '1px solid #3d1a08' }}>
               <div className="text-xs mb-1" style={{ color: '#5a4535' }}>Joueurs : connectez-vous sur</div>
               <div className="font-mono text-sm font-bold" style={{ color: '#c8972a' }}>
-                http://{session.serverIP}:3000
+                {session.lanHost ? `https://${session.lanHost}` : '—'}
               </div>
               <div className="text-xs mt-1" style={{ color: '#3d1a08' }}>
                 (même réseau WiFi)
