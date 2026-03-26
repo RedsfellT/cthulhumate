@@ -2,8 +2,10 @@ import { create } from 'zustand'
 import { getSetting, setSetting } from '../db/database'
 
 export type AiProvider = 'openai' | 'anthropic' | 'none'
+export type AppRole = 'gardien' | 'investigateur' | null
 
 interface SettingsState {
+  appRole: AppRole
   aiProvider: AiProvider
   openaiKey: string
   anthropicKey: string
@@ -11,6 +13,7 @@ interface SettingsState {
   anthropicModel: string
   loaded: boolean
   load: () => Promise<void>
+  setAppRole: (r: AppRole) => Promise<void>
   setAiProvider: (p: AiProvider) => void
   setOpenaiKey: (k: string) => void
   setAnthropicKey: (k: string) => void
@@ -20,6 +23,7 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
+  appRole: null,
   aiProvider: 'none',
   openaiKey: '',
   anthropicKey: '',
@@ -28,7 +32,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   loaded: false,
 
   load: async () => {
-    const [provider, oKey, aKey, oModel, aModel] = await Promise.all([
+    const [role, provider, oKey, aKey, oModel, aModel] = await Promise.all([
+      getSetting('appRole'),
       getSetting('aiProvider'),
       getSetting('openaiKey'),
       getSetting('anthropicKey'),
@@ -36,6 +41,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       getSetting('anthropicModel'),
     ])
     set({
+      appRole: (role as AppRole) ?? null,
       aiProvider: (provider as AiProvider) ?? 'none',
       openaiKey: oKey ?? '',
       anthropicKey: aKey ?? '',
@@ -43,6 +49,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       anthropicModel: aModel ?? 'claude-opus-4-6',
       loaded: true,
     })
+  },
+
+  setAppRole: async (r) => {
+    set({ appRole: r })
+    if (r) await setSetting('appRole', r)
+    else await setSetting('appRole', '')
   },
 
   setAiProvider: (p) => set({ aiProvider: p }),

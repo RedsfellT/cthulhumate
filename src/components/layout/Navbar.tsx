@@ -4,12 +4,21 @@ import { useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { QuickDicePanel } from '../ui/DiceRoller'
 import { useSessionStore } from '../../store/useSessionStore'
+import { useSettingsStore } from '../../store/useSettingsStore'
 
-const NAV_ITEMS = [
+const NAV_ITEMS_GARDIEN = [
   { path: '/', icon: BookOpen, label: 'Bibliothèque' },
   { path: '/characters', icon: Users, label: 'Personnages' },
   { path: '/keeper', icon: Eye, label: 'Gardien' },
-  { path: '/ai', icon: MessageSquare, label: 'Assistant IA' },
+  { path: '/ai', icon: MessageSquare, label: 'IA' },
+  { path: '/sessions', icon: Swords, label: 'Sessions' },
+  { path: '/settings', icon: Settings, label: 'Paramètres' },
+]
+
+const NAV_ITEMS_INVESTIGATEUR = [
+  { path: '/', icon: BookOpen, label: 'Bibliothèque' },
+  { path: '/characters', icon: Users, label: 'Personnages' },
+  { path: '/ai', icon: MessageSquare, label: 'IA' },
   { path: '/sessions', icon: Swords, label: 'Sessions' },
   { path: '/settings', icon: Settings, label: 'Paramètres' },
 ]
@@ -18,6 +27,8 @@ export function Navbar() {
   const { pathname } = useLocation()
   const [diceOpen, setDiceOpen] = useState(false)
   const sessionConnected = useSessionStore(s => s.connected)
+  const appRole = useSettingsStore(s => s.appRole)
+  const NAV_ITEMS = appRole === 'gardien' ? NAV_ITEMS_GARDIEN : NAV_ITEMS_INVESTIGATEUR
 
   return (
     <>

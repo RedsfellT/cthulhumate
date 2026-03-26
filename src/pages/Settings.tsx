@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { Settings as SettingsIcon, Key, Eye, EyeOff, Check, Info } from 'lucide-react'
+import { Settings as SettingsIcon, Key, Eye, EyeOff, Check, Info, RefreshCw } from 'lucide-react'
 
 export function Settings() {
   const store = useSettingsStore()
@@ -122,6 +122,33 @@ export function Settings() {
                 Elle n'est jamais envoyée ailleurs que directement aux API officielles.
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Role */}
+        <section>
+          <h2 className="text-sm font-semibold mb-3" style={{ color: '#c8972a', fontFamily: 'Georgia,serif' }}>
+            Mon rôle
+          </h2>
+          <div className="rounded-lg p-4 flex items-center justify-between"
+            style={{ background: '#1a0a00', border: '1px solid #3d1a08' }}>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{store.appRole === 'gardien' ? '👁️' : '🔍'}</span>
+              <div>
+                <div className="text-sm font-semibold" style={{ color: '#e8d5b0' }}>
+                  {store.appRole === 'gardien' ? 'Gardien des Arcanes' : 'Investigateur'}
+                </div>
+                <div className="text-xs" style={{ color: '#5a4535' }}>
+                  Rôle actuel sur cet appareil
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => store.setAppRole(null)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs"
+              style={{ background: '#231008', border: '1px solid #3d1a08', color: '#8a7055' }}>
+              <RefreshCw size={12} /> Changer
+            </button>
           </div>
         </section>
 
